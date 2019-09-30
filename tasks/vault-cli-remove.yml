@@ -1,0 +1,19 @@
+# Synopsis: playbook installs HashiCorp's Vault CLI onto client machine. Also contains logic to remove configuration if necessary set flag passed is set to remove
+# Inputs:
+#     vault_cli_install_location - Default Vault CLI install location if within Linux
+# Outputs: none
+
+
+- name: Remove Vault binary from default install location if running in Linux
+  file:
+    path: "{{ vault_cli_install_location }}/vault"
+    state: absent
+  become: yes
+  when: (ansible_os_family == "RedHat") or (ansible_os_family == "Debian")
+
+- name: Remove Vault binary from client if running in Mac OS
+  package:
+    name: vault
+    state: absent
+  when: ansible_os_family == "Darwin"
+

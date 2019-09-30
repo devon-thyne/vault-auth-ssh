@@ -1,0 +1,257 @@
+#!/bin/bash
+
+# Synopsis: sshv helps clients to make automatic use of HashiCorp Vault's ssh secrets engine and remotely connect to host machines with Vault signed ssh key pairs with ease
+# Dependencies: bash, vault cli
+# Author(s):
+#   Devon Thyne (devon-thyne)
+# Modified: 20190725
+# Version: 4.2-000003
+
+SSHV_VERSION="4.2-000003"
+
+##### sshv, version 4.2-000003
+#
+# Command to help user make use of HashiCorp Vault's SSH Secrets Engine
+# Command will automatically perform overhead of generating new ssh key, getting it signed by Vault, and establish an SSH connection to a remote host
+#
+#
+# Syntax:
+#
+#   sshv [OPTIONS] username@host
+#     or
+#   sshv user@host [OPTIONS]
+#
+#
+# Options:
+#
+#   -e [ENGINE] or --engine [ENGINE] : (optional) name of the SSH secrets engine within Vault to use to sign SSH keys. Default is to read in value from 'VAULT_SSH_ENGINE' environment vairbale if this flag is not passed.
+#
+#   -h or --help : show sshv command help pages
+#
+#   -m [METHOD] or --login_method [METHOD] : (optional) use specified login method to authenticate with Vault. Default behavior is to use 'token' authentication by reading in the token '~/.vault-token'. If this does not exist, the nexy try is to read the token from the default 'VAULT_TOKEN' environment variable if this flag is not passed. Will prompt for token if not found in default file or environment variable
+#     Mothod Options:
+#       token : Vault 'token' login method, prompts for user's Vault token (default)
+#       ldap : Vault 'ldap' login method, prompts for user's Vault 'username' and 'password'
+#
+#   -o or --override_auth : (optional) when flag is passed any existing vault authentication that may previously exist for the user will be overridden with the new authentication performed to vault from the execution of the sshv command. Default behavior is to cache the previous authentication information before the command executesa and restore it upon finishing execution of the command.
+#
+#   -u [VAULT URL] or --vault_url [VAULT URL] : (optional) specify URL to specific vault to use for ssh key signing. Default behavior is to read this value in from the default 'VAULT_ADDR' environment variable if this flag is not passed
+#
+#   --version : display version of current sshv installation
+#
+#   -v : run sshv in verbose mode
+#
+#
+# Details:
+#
+#   username : the user wished to connect to the remote machine (host) via sshv as
+#
+#   host : the hostname or IP address of the remote machine wished to connnect to via sshv
+#
+#
+# Examples:
+#
+#   1. Will use ldap auth method to connect to pre-specified Vault and use pre-specified ssh engine
+#
+#     sshv ec2-user@111.111.111.111 -m ldap -u https://111.111.111.112:8200 -e ssh_engine
+#
+#   2. Will auto use token auth method by default and will auto-prompt user for Vault url and ssh engine name if not found from environment
+#
+#     sshv ec2-user@111.111.111.111
+
+
+# Default Vault set to address read in from 'VAULT_ADDR' environment variable
+SSHV_VAULT=$VAULT_ADDR
+
+# Default Vault SSH secrets engine name read in from 'VAULT_SSH_ENGINE' environment variable
+SSHV_ENGINE=$VAULT_SSH_ENGINE
+
+# Default Vault authentication method is 'token' auth
+SSHV_AUTH=token
+
+# Defult Vault auth token read from ~/.vault-token, then from 'VAULT_TOKEN' environment variable
+SSHV_DEFAULT_TOKEN_LOCATION=~/.vault-token
+SSHV_TOKEN=$VAULT_TOKEN
+
+# Default auth override to false meaning previous vault token prior to command will be restored after execution of sshv command
+SSHV_OVERRIDE_AUTH=false
+
+# Default verbose mode off
+SSHV_VERBOSITY=""
+
+
+
+# validate that commandline arguments are passed
+if [ $# -eq 0 ]; then
+	echo "Error, sshv missing arguments. Please reference sshv help page for assistance with 'sshv --help'."
+	exit 1
+fi
+
+# traverse option flags input as command line arguments
+while [ ! $# -eq 0 ]
+do
+	case "$1" in
+		-e | --engine)
+			shift
+			SSHV_ENGINE=$1
+			;;
+		-h | --help)
+			echo -e "sshv, version $SSHV_VERSION\n\nCommand to help user make use of HashiCorp Vault's SSH Secrets Engine\nCommand will automatically perform overhead of generating new ssh key, getting it signed by Vault, and establish an SSH connection to a remote host\n\n\nSyntax:\n\n\tsshv [OPTIONS] username@host\n\t  or\n\tsshv user@host [OPTIONS]\n\n\nOptions:\n\n\t-e [ENGINE] or --engine [ENGINE] : (optional) name of the SSH secrets engine within Vault to use to sign SSH keys. Default is to read in value from 'VAULT_SSH_ENGINE' environment vairbale if this flag is not passed.\n\n\t-h or --help : show sshv command help pages\n\n\t-m [METHOD] or --login_method [METHOD] : (optional) use specified login method to authenticate with Vault. Default behavior is to use 'token' authentication by reading in the token '~/.vault-token'. If this does not exist, the nexy try is to read the token from the default 'VAULT_TOKEN' environment variable if this flag is not passed. Will prompt for token if not found in default file or environment variable\n\t\tMethod Options:\n\t\t\ttoken : Vault 'token' login method, prompts for user's Vault token (default)\n\t\t\tldap : Vault 'ldap' login method, prompts for user's Vault 'username' and 'password'\n\n\t-o or --override_auth : (optional) when flag is passed any existing vault authentication that may previously exist for the user will be overridden with the new authentication performed to vault from the execution of the sshv command. Default behavior is to cache the previous authentication information before the command executesa and restore it upon finishing execution of the command.\n\n\t-u [VAULT URL] or --vault_url [VAULT URL] : (optional) specify URL to specific vault to use for ssh key signing. Default behavior is to read this value in from the 'VAULT_ADDR' environment variable if this flag is not passed\n\n\t--version : display version of current sshv installation\n\n\t-v : run sshv in verbose mode\n\n\nDetails:\n\n\tusername : the user wished to connect to the remote machine (host) via sshv as\n\n\thost : the hostname or IP address of the remote machine wished to connnect to via sshv\n\n\nExamples:\n\n\t1. Will use ldap auth method to connect to pre-specified Vault and use pre-specified ssh engine\n\n\t\tsshv ec2-user@111.111.111.111 -m ldap -u http://111.111.111.112:8200 -e ssh_engine\n\n\t2. Will auto use token auth method by default and will auto-prompt user for Vault url and ssh engine name if not found from environment\n\n\t\tsshv ec2-user@111.111.111.111"
+			exit 0
+			;;
+		-m | --login_method)
+			shift
+			SSHV_AUTH=$1
+			if [ "$SSHV_AUTH" == "token" ]; then
+				SSHV_MANUAL_TOKEN=true
+			fi
+			;;
+		-o | --override_auth)
+			SSHV_OVERRIDE_AUTH=true
+			;;
+		-u | --vault_url)
+			shift
+			SSHV_VAULT=$1
+			;;
+                --version)
+                        echo "version $SSHV_VERSION"
+                        exit 0
+                        ;;
+                -v | -vv | -vvv)
+                        SSHV_VERBOSITY=$1
+                        ;;
+		*)
+			# Check if input matches <username>@<host/IP>
+			if [[ "$1" =~ ^[^@]*(@)[a-zA-Z0-9-]* ]]; then
+				# Parse out username and host from input
+				SSHV_USER="$(cut -d'@' -f1 <<<"$1")"
+				SSHV_HOST="$(cut -d'@' -f2 <<<"$1")"
+			else
+				echo "Error, invalid argument '$1' passed to installation script. Please reference sshv help page for assistance with 'sshv --help'."
+				exit 1
+			fi
+			;;
+	esac
+	shift
+done
+
+# validate that required programs are installed to use sshv
+if [[ ! $(command -v ssh-keygen) ]]; then
+	echo "Error, it appears this machine does not have 'ssh-keygen' installed. This is required to use 'sshv'."
+	exit 1
+fi
+if [[ ! $(command -v vault) ]]; then
+        echo "Error, it appears this machine does not have 'vault' installed. This is required to use 'sshv'."
+        exit 1
+fi
+
+# validate Vault address exists
+if [ -z "$SSHV_VAULT" ]; then
+        read -p "Please enter URL to Vault to use for SSH key signing: " SSHV_VAULT
+        if [ -z "$SSHV_VAULT" ]; then
+		echo "Error, URL to Vault not passed via command line or found in default 'VAULT_ADDR' environment variable. Please reference sshv help page for assistance with 'sshv --help'."
+		exit 1
+	fi
+fi
+
+# validate Vault SSH engine exists
+if [ -z "$SSHV_ENGINE" ]; then
+	read -p "Please enter name of Vault SSH Secrets Engine to use for SSH key signing: " SSHV_ENGINE
+        if [ -z "$SSHV_ENGINE" ]; then
+		echo "Error, name of Vault SSH secrets engine not passed via command line or found in default 'VAULT_SSH_ENGINE' environment variable. Please reference sshv help page for assistance with 'sshv --help'."
+        	exit 1
+	fi
+fi
+
+# Must have environment variable set to skip Vault TLS verification
+export VAULT_SKIP_VERIFY=true
+
+# Verify vault is accessible
+SSHV_VAULT_STATUS=$( vault status -address="$SSHV_VAULT" | grep Sealed | awk '{ print $2}' )
+if [ "$SSHV_VAULT_STATUS" != "false" ]; then
+	echo "Error, Vault at address '$SSHV_VAULT' is unreachable."
+	exit 1
+fi
+
+# Cache existing vault token if exists
+if [ -f "$SSHV_DEFAULT_TOKEN_LOCATION" ]; then
+	SSHV_OLD_TOKEN=$( cat $SSHV_DEFAULT_TOKEN_LOCATION )
+	SSHV_TOKEN=$SSHV_OLD_TOKEN
+fi
+
+# validate Vault authentication method
+case "$SSHV_AUTH" in
+	token)
+		if [ "$SSHV_MANUAL_TOKEN" == true ]; then
+			if [ ! -z "$SSHV_OLD_TOKEN" ]; then
+				read -p "Existing Vault token found in '$SSHV_DEFAULT_TOKEN_LOCATION', would you like to use it? (y/n): " RESPONSE
+				if [ "$RESPONSE" != "y" ] && [ "$RESPONSE" != "yes" ] && [ "$RESPONSE" != "Y" ] && [ "$RESPONSE" != "Yes" ]; then
+					SSHV_TOKEN=$SSHV_VAULT_TOKEN
+				fi
+			fi
+		fi
+		if [ -z "$SSHV_TOKEN" ]; then
+			echo "Vault authentication token not found in default 'VAULT_TOKEN' environment variable."
+			read -s -p "Please enter your Vault token (will be hidden): " SSHV_TOKEN
+			echo ""
+		fi
+		if [ -z "$SSHV_TOKEN" ]; then
+			echo "Error, no Vault authentication token given. Please reference sshv help page for assistance with 'sshv --help'."
+			exit 1
+		fi
+		SSHV_AUTH_STATUS=$( vault login -address="$SSHV_VAULT" $SSHV_TOKEN 2> /dev/null )
+		if [[ ! "$SSHV_AUTH_STATUS" == *"Success! You are now authenticated."* ]]; then
+			echo "Error, token authentication failed to Vault '$SSHV_VAULT'. Please reference sshv help page for assistance with 'sshv --help'."
+			exit 1
+		fi
+		;;
+	ldap)
+		read -p "Please enter your Vault username: " SSHV_USERNAME
+		echo -n "Password (will be hidden): "
+		SSHV_AUTH_STATUS=$( vault login -address="$SSHV_VAULT" -method=ldap username=$SSHV_USERNAME 2> /dev/null )
+		echo ""
+		if [[ ! "$SSHV_AUTH_STATUS" == *"Success! You are now authenticated."* ]]; then
+                        echo "Error, ldap authentication failed to Vault '$SSHV_VAULT'. Please reference sshv help page for assistance with 'sshv --help'."
+                        exit 1
+                fi
+		;;
+	*)
+		echo "Error, invalid login authentication method '$SSHV_AUTH'. Please reference sshv help page for assistance with 'sshv --help'."
+esac
+
+# Auto generate new ssh key pair to use for communication
+# Always allow script to overwrite the old key pair saved in standard location, pipe to null to avoid output
+yes y | ssh-keygen -t rsa -f "$HOME/.ssh/sshv_key" -N '' > /dev/null
+
+# Ask Vault to sign the public key that we just generated above
+SSHV_AUTH_STATUS=$( vault write -address="$SSHV_VAULT" $SSHV_ENGINE/sign/approved-clients public_key=@$HOME/.ssh/sshv_key.pub 2>&1 > /dev/null )
+if [[ "$SSHV_AUTH_STATUS" == *"permission denied"* ]]; then
+	echo "Error, permission denied to engine '$SSHV_ENGINE'. Please reference sshv help page for assistance with 'sshv --help'."
+	if [ "$SSHV_OVERRIDE_AUTH" == false ]; then
+        	if [ -z "$SSHV_OLD_TOKEN" ]; then
+                	rm $SSHV_DEFAULT_TOKEN_LOCATION
+        	else
+                	echo "$SSHV_OLD_TOKEN" > $SSHV_DEFAULT_TOKEN_LOCATION
+        	fi
+	fi
+        exit 1
+fi
+
+# Save the signed public key to use for communication with the desired host
+vault write -address="$SSHV_VAULT" -field=signed_key $SSHV_ENGINE/sign/approved-clients public_key=@$HOME/.ssh/sshv_key.pub > $HOME/.ssh/sshv_key-cert.pub
+
+# Dump old token back into if exists and flag not set to keep login data
+if [ "$SSHV_OVERRIDE_AUTH" == false ]; then
+        if [ -z "$SSHV_OLD_TOKEN" ]; then
+		rm $SSHV_DEFAULT_TOKEN_LOCATION
+	else
+		echo "$SSHV_OLD_TOKEN" > $SSHV_DEFAULT_TOKEN_LOCATION
+	fi
+fi
+
+# Change permissions on generated 
+chmod 600 $HOME/.ssh/sshv_key-cert.pub
+
+# SSH into host machine using the signed key
+ssh -i $HOME/.ssh/sshv_key-cert.pub -i $HOME/.ssh/sshv_key $SSHV_USER@$SSHV_HOST $SSHV_VERBOSITY
+

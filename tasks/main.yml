@@ -1,0 +1,26 @@
+# Synopsis: This role is to configure client machines with the tools they need to interface with HashiCorp Vault and make use of its ssh secrets engine to connent to remote host machines via ssh
+# Inputs: 
+#     sshv_configure - boolean value to tell role to perform sshv configuration or not, default is false
+#     sshv_config_behavior - default behavior of the sshv-configure task set to apply configuration 'configure', alternative would be 'remove' to remove existing configuration
+#     vault_cli_configure - Default flag to turn vault cli configuration on/off, default is set to 'true' meaning it will install/configure vault cli, alternatice would be 'false' meaning vault cli install/configuration/removal will be skipped
+#     vault_cli_config_behavior - Default behavior of the vault-cli-configure task set to apply vault cli configurtion 'configure', alternative would be 'remove' to remove vault cli configuration from machine
+# Outputs: none
+
+---
+
+- name: Configure vault cli on client
+  include: vault-cli-configure.yml
+  when: (vault_cli_configure | bool) and (vault_cli_config_behavior == "configure")
+
+- name: Remove vault cli from client
+  include: vault-cli-remove.yml
+  when: (vault_cli_configure | bool) and (vault_cli_config_behavior == "remove")
+
+- name: Configure sshv on client
+  include: sshv-configure.yml
+  when: (sshv_configure | bool) and (sshv_config_behavior == "configure")
+
+- name: Remove sshv from client
+  include: sshv-remove.yml
+  when: (sshv_configure | bool) and (sshv_config_behavior == "remove")
+

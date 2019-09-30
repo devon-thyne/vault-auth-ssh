@@ -1,0 +1,37 @@
+# Synopsis: playbook installs HashiCorp's Vault CLI onto client machine. Also contains logic to remove configuration if necessary set flag passed is set to remove
+# Inputs:
+#     vault_cli_version - Default Vault version to install if within Linux. MacOS will install latest via RPM
+#     vault_cli_install_location - Default Vault CLI install location if within Linux
+# Outputs: none
+
+    
+- name: Create temporary folder /tmp/vault/ on client
+  file:
+    path: /tmp/vault
+    state: directory
+  when: (ansible_os_family == "RedHat") or (ansible_os_family == "Debian")
+
+- name: Download latest Vault binary to /tmp/vault/ on client if running in Linux
+  get_url:
+    url: "https://releases.hashicorp.com/vault/{{ vault_cli_version }}/vault_{{ vault_cli_version }}_linux_amd64.zip"
+    dest: "/tmp/vault/vault_{{ vault_cli_version }}.zip"
+  when: (ansible_os_family == "RedHat") or (ansible_os_family == "Debian")
+
+- name: Unzip downloaded Vault binary to /usr/local/bin/ if running in Linux
+  unarchive:
+    src: "/tmp/vault/vault_{{ vault_cli_version }}.zip"
+    dest: "{{ vault_cli_install_location }}"
+    remote_src: yes
+  become: yes
+  when: (ansible_os_family == "RedHat") or (ansible_os_family == "Debian")
+   
+- name: Download latest Vault binary for Mac OS on client if running in Mac OS
+  package:
+    name: vault
+  when: ansible_os_family == "Darwin"
+
+- name: Remove temporary folder /tmp/vault/ from client
+  file:
+    path: /tmp/vault
+    state: absent
+

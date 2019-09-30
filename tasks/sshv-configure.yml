@@ -1,0 +1,40 @@
+# Synopsis: task provisions client machine to use Vault for SSH key signing to connect to remote host machines, Also contains logic to remove configuration if necessary set flag passed is set to remove
+# Inputs: 
+#     sshv_config_update - default update installation flag empty meaning playbook will not force update existing sshv installation on host and fail if it is already installed. Alternative would be 'true' to allow sshv installation to overwrite any existing install 
+# Outputs: none
+
+
+- name: Create temportary folder /tmp/sshv/ on client to store sshv installation files
+  file:
+    path: /tmp/sshv
+    state: directory
+
+- name: Copy sshv to client in /tmp/ directory
+  copy:
+    src: sshv/
+    dest: /tmp/sshv/
+
+- set_fact:
+    sshv_config_update_flag: ""
+
+# NOTE: Default 'sshv_config_update' value is 'false' meaning installation fill fail if it already exists on current machine. If value is set to 'true', will update existing installation without any errors
+- name: Get sshv installation behavior
+  set_fact:
+    sshv_config_update_flag: "-f"
+  when: (sshv_config_update is defined) and (sshv_config_update | bool)
+
+- name: Install sshv on client using installation script /tmp/sshv/install-sshv.sh
+  shell: bash /tmp/sshv/install-sshv.sh {{ sshv_config_update_flag }}
+  become: yes
+  register: shell_results
+
+- name: Show installation script execution results
+  debug:
+    msg: "{{  shell_results.stdout }}"
+    verbosity: 2
+
+- name: Remove temporary folder /tmp/sshv/ from client
+  file:
+    path: /tmp/sshv
+    state: absent
+

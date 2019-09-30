@@ -1,0 +1,30 @@
+# Synopsis: task removed provisioning from client machine to use Vault for SSH key signing to connect to remote host machines, Also contains logic to remove configuration if necessary set flag passed is set to remove
+# Inputs: none
+# Outputs: none
+
+
+- name: Create temportary folder /tmp/sshv/ on client to store sshv installation files
+  file:
+    path: /tmp/sshv
+    state: directory
+
+- name: Copy sshv to client in /tmp/ directory
+  copy:
+    src: sshv/
+    dest: /tmp/sshv/
+
+- name: Uninstall sshv from client using uninstall script /tmp/sshv/uninstall-ssh.sh
+  shell: bash /tmp/sshv/uninstall-sshv.sh
+  become: yes
+  register: shell_results
+
+- name: Show installation script execution results
+  debug:
+    msg: "{{  shell_results.stdout }}"
+    verbosity: 2
+
+- name: Remove temporary folder /tmp/sshv/ from client
+  file:
+    path: /tmp/sshv
+    state: absent
+

@@ -1,0 +1,33 @@
+galaxy_info:
+  author: Devon Thyne
+  description: This role is to configure client machines with the tools they need to interface with HashiCorp Vault and make use of its ssh secrets engine to connent to remote host machines via ssh.
+  company: REDACTED
+
+  issue_tracker_url: REDACTED
+
+  license: BSD
+
+  min_ansible_version: 2.7
+
+  # If this a Container Enabled role, provide the minimum Ansible Container version.
+  # min_ansible_container_version:
+
+  platforms:
+  - name: RHEL
+    versions:
+    - 7.6
+    - 6.10
+  - name: Ubuntu
+    versions:
+    - 16
+    - 14
+  - name: MacOS
+
+  galaxy_tags:
+  - vault
+  - automation
+  - authentication
+  - ssh
+  - client
+
+  dependencies: []

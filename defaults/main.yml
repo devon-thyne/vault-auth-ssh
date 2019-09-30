@@ -1,0 +1,26 @@
+##### vault cli defaults
+
+# Default flag to turn vault cli configuration on/off, default is set to 'true' meaning it will install/configure vault cli, alternatice would be 'false' meaning vault cli install/configuration/removal will be skipped
+vault_cli_configure: true
+
+# Default behavior of the vault-cli-configure task set to apply vault cli configuration 'configure', alternative would be 'remove' to remove vault cli configuration from machine
+vault_cli_config_behavior: "configure"
+
+# Default vault version to install if within Linux. MacOS will install latest via RPM
+vault_cli_version: "1.1.3"
+
+# Default vault CLI install location if within Linux
+vault_cli_install_location: "/usr/local/bin"
+
+
+##### sshv defaults
+
+# Default flag to turn sshv configuration on/off, default is set to 'true' meaning it will install/configure sshv, alternatice would be 'false' meaning sshv install/configuration/removal will be skipped
+sshv_configure: true
+
+# Default behavior of the sshv-configure task set to apply configuration 'configure', alternative would be 'remove' to remove existing configuration
+sshv_config_behavior: "configure"
+
+# Default update installation flag empty meaning playbook will not force update existing sshv installation on host and fail if it is already installed. Alternative would be 'true' to allow sshv installation to overwrite any existing install
+sshv_config_update: ""
+
